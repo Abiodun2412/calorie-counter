@@ -6,3 +6,4 @@ Flask-based calorie tracking web application.
 - Python (Flask)
 - SQLite
 - HTML/CSS/JS
+- React
