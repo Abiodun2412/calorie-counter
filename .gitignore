@@ -229,3 +229,7 @@ dist/
 .vs/
 *.suo
 *.user
+
+# Environment
+.env
+venv/
