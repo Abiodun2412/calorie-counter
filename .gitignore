@@ -224,3 +224,8 @@ pnpm-debug.log*
 # Build outputs
 frontend/build/
 dist/
+
+# Visual Studio
+.vs/
+*.suo
+*.user
