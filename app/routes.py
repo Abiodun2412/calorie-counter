@@ -24,17 +24,45 @@ def create_person():
 
 @bp.post("/entries")
 def add_entry():
-    data = request.get_json()
-    entry = FoodEntry(
-        person_id=int(data["person_id"]),
-        food_name=data["food_name"].strip(),
-        calories=int(data["calories"]),
-        entry_date=date.fromisoformat(
+    data = request.get_json() or {}
+
+    try:
+        person_id = int(data.get("person_id"))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Valid person_id is required"}), 400
+
+    person = Person.query.get(person_id)
+    if not person:
+        return jsonify({"error": "Person not found"}), 404
+
+    food_name = data.get("food_name", "").strip()
+    if not food_name:
+        return jsonify({"error": "Food name is required"}), 400
+
+    try:
+        calories = int(data.get("calories"))
+        if calories <= 0:
+            return jsonify({"error": "Calories must be greater than 0"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "Calories must be a valid number"}), 400
+
+    try:
+        entry_date = date.fromisoformat(
             data.get("entry_date", date.today().isoformat())
         )
+    except ValueError:
+        return jsonify({"error": "entry_date must be in YYYY-MM-DD format"}), 400
+
+    entry = FoodEntry(
+        person_id=person_id,
+        food_name=food_name,
+        calories=calories,
+        entry_date=entry_date
     )
+
     db.session.add(entry)
     db.session.commit()
+
     return jsonify({"id": entry.id}), 201
 
 
