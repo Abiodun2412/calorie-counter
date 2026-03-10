@@ -10,16 +10,22 @@ def home():
     return {"message": "Calorie Counter API running"}
 
 
-@bp.post("/people")
-def create_person():
-    data = request.get_json()
-    person = Person(
-        name=data["name"].strip(),
-        age=int(data["age"])
-    )
-    db.session.add(person)
-    db.session.commit()
-    return jsonify({"id": person.id}), 201
+    @bp.post("/people")
+    def create_person():
+        data = request.get_json() or {}
+        name = data.get("name", "").strip()
+        if not name:
+            return jsonify({"error": "Name is required"}), 400
+            try:
+            age = int(data.get("age"))
+                if age <= 0:
+                except (TypeError, ValueError):
+                    return jsonify({"error": "Age must be greater than 0"}), 400
+                    person = Person(name=name, age=age)
+                    db.session.add(person)
+                    db.session.commit()
+                    return jsonify({"id": person.id}), 201
+        
 
 
 @bp.post("/entries")
