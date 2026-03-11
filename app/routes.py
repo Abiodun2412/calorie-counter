@@ -10,22 +10,26 @@ def home():
     return {"message": "Calorie Counter API running"}
 
 
-    @bp.post("/people")
-    def create_person():
-        data = request.get_json() or {}
-        name = data.get("name", "").strip()
-        if not name:
-            return jsonify({"error": "Name is required"}), 400
-            try:
-            age = int(data.get("age"))
-                if age <= 0:
-                except (TypeError, ValueError):
-                    return jsonify({"error": "Age must be greater than 0"}), 400
-                    person = Person(name=name, age=age)
-                    db.session.add(person)
-                    db.session.commit()
-                    return jsonify({"id": person.id}), 201
-        
+@bp.post("/people")
+def create_person():
+    data = request.get_json() or {}
+    name = data.get("name", "").strip()
+
+    if not name:
+        return jsonify({"error": "Name is required"}), 400
+
+    try:
+        age = int(data.get("age"))
+        if age <= 0:
+            return jsonify({"error": "Age must be greater than 0"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "Age must be a valid number"}), 400
+
+    person = Person(name=name, age=age)
+    db.session.add(person)
+    db.session.commit()
+
+    return jsonify({"id": person.id}), 201
 
 
 @bp.post("/entries")
@@ -75,9 +79,15 @@ def add_entry():
 @bp.get("/entries")
 def list_entries():
     person_id = request.args.get("person_id", type=int)
-    entry_date = date.fromisoformat(
-        request.args.get("date", date.today().isoformat())
-    )
+    if not person_id:
+        return jsonify({"error": "person_id is required"}), 400
+
+    try:
+        entry_date = date.fromisoformat(
+            request.args.get("date", date.today().isoformat())
+        )
+    except ValueError:
+        return jsonify({"error": "date must be in YYYY-MM-DD format"}), 400
 
     entries = FoodEntry.query.filter_by(
         person_id=person_id,
@@ -98,3 +108,24 @@ def list_entries():
             } for e in entries
         ]
     })
+
+
+@bp.get("/history")
+def history():
+    person_id = request.args.get("person_id", type=int)
+    if not person_id:
+        return jsonify({"error": "person_id is required"}), 400
+
+    entries = FoodEntry.query.filter_by(person_id=person_id).order_by(
+        FoodEntry.entry_date.desc()
+    ).all()
+
+    return jsonify([
+        {
+            "id": e.id,
+            "food_name": e.food_name,
+            "calories": e.calories,
+            "entry_date": e.entry_date.isoformat()
+        }
+        for e in entries
+    ])
