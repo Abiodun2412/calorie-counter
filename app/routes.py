@@ -28,11 +28,27 @@ def create_person():
     except (TypeError, ValueError):
         return jsonify({"error": "Age must be a valid number"}), 400
 
-    person = Person(name=name, age=age)
+    try:
+        daily_calorie_goal = int(data.get("daily_calorie_goal", 2000))
+        if daily_calorie_goal <= 0:
+            return jsonify({"error": "daily_calorie_goal must be greater than 0"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "daily_calorie_goal must be a valid number"}), 400
+
+    person = Person(
+        name=name,
+        age=age,
+        daily_calorie_goal=daily_calorie_goal
+    )
     db.session.add(person)
     db.session.commit()
 
-    return jsonify({"id": person.id}), 201
+    return jsonify({
+        "id": person.id,
+        "name": person.name,
+        "age": person.age,
+        "daily_calorie_goal": person.daily_calorie_goal
+    }), 201
 
 
 @bp.post("/entries")
@@ -54,7 +70,9 @@ def add_entry():
 
     meal_type = data.get("meal_type", "").strip().lower()
     if meal_type not in VALID_MEAL_TYPES:
-        return jsonify({"error": "meal_type must be breakfast, lunch, dinner, or snack"}), 400
+        return jsonify({
+            "error": "meal_type must be breakfast, lunch, dinner, or snack"
+        }), 400
 
     try:
         calories = int(data.get("calories"))
@@ -68,9 +86,13 @@ def add_entry():
         carbs = float(data.get("carbs", 0))
         fats = float(data.get("fats", 0))
         if protein < 0 or carbs < 0 or fats < 0:
-            return jsonify({"error": "Protein, carbs, and fats cannot be negative"}), 400
+            return jsonify({
+                "error": "Protein, carbs, and fats cannot be negative"
+            }), 400
     except (TypeError, ValueError):
-        return jsonify({"error": "Protein, carbs, and fats must be valid numbers"}), 400
+        return jsonify({
+            "error": "Protein, carbs, and fats must be valid numbers"
+        }), 400
 
     try:
         entry_date = date.fromisoformat(
@@ -116,7 +138,7 @@ def list_entries():
     entries = FoodEntry.query.filter_by(
         person_id=person_id,
         entry_date=entry_date
-    ).all()
+    ).order_by(FoodEntry.created_at.asc()).all()
 
     total_calories = sum(e.calories for e in entries)
     total_protein = sum(e.protein for e in entries)
@@ -133,10 +155,15 @@ def list_entries():
     for e in entries:
         meal_totals[e.meal_type] += e.calories
 
+    remaining_calories = person.daily_calorie_goal - total_calories
+
     return jsonify({
         "person_id": person_id,
+        "person_name": person.name,
+        "daily_calorie_goal": person.daily_calorie_goal,
         "date": entry_date.isoformat(),
         "total_calories": total_calories,
+        "remaining_calories": remaining_calories,
         "total_protein": total_protein,
         "total_carbs": total_carbs,
         "total_fats": total_fats,
@@ -171,19 +198,23 @@ def history():
         FoodEntry.created_at.desc()
     ).all()
 
-    return jsonify([
-        {
-            "id": e.id,
-            "food_name": e.food_name,
-            "meal_type": e.meal_type,
-            "calories": e.calories,
-            "protein": e.protein,
-            "carbs": e.carbs,
-            "fats": e.fats,
-            "entry_date": e.entry_date.isoformat()
-        }
-        for e in entries
-    ])
+    return jsonify({
+        "person_id": person_id,
+        "person_name": person.name,
+        "entries": [
+            {
+                "id": e.id,
+                "food_name": e.food_name,
+                "meal_type": e.meal_type,
+                "calories": e.calories,
+                "protein": e.protein,
+                "carbs": e.carbs,
+                "fats": e.fats,
+                "entry_date": e.entry_date.isoformat()
+            }
+            for e in entries
+        ]
+    })
 
 
 @bp.get("/weekly-summary")
@@ -206,7 +237,6 @@ def weekly_summary():
     ).order_by(FoodEntry.entry_date.asc()).all()
 
     summary = {}
-
     for i in range(7):
         day = start_date + timedelta(days=i)
         summary[day.isoformat()] = {
@@ -225,6 +255,8 @@ def weekly_summary():
 
     return jsonify({
         "person_id": person_id,
+        "person_name": person.name,
+        "daily_calorie_goal": person.daily_calorie_goal,
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
         "daily_totals": summary

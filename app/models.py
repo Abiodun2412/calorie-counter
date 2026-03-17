@@ -1,12 +1,14 @@
 from datetime import datetime, date
 from . import db
 
+
 class Person(db.Model):
     __tablename__ = "people"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     age = db.Column(db.Integer, nullable=False)
+    daily_calorie_goal = db.Column(db.Integer, nullable=False, default=2000)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
 
     food_entries = db.relationship("FoodEntry", backref="person", lazy=True)
@@ -18,7 +20,7 @@ class FoodEntry(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     person_id = db.Column(db.Integer, db.ForeignKey("people.id"), nullable=False)
     food_name = db.Column(db.String(255), nullable=False)
-    meal_type = db.Column(db.String(50), nullable=False)  # breakfast, lunch, dinner, snack
+    meal_type = db.Column(db.String(50), nullable=False)
     calories = db.Column(db.Integer, nullable=False)
     protein = db.Column(db.Float, nullable=False, default=0)
     carbs = db.Column(db.Float, nullable=False, default=0)
