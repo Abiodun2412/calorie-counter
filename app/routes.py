@@ -1,9 +1,12 @@
-from datetime import date
+from datetime import date, timedelta
 from flask import Blueprint, request, jsonify
 from . import db
 from .models import Person, FoodEntry
 
 bp = Blueprint("api", __name__)
+
+VALID_MEAL_TYPES = {"breakfast", "lunch", "dinner", "snack"}
+
 
 @bp.get("/")
 def home():
@@ -41,7 +44,7 @@ def add_entry():
     except (TypeError, ValueError):
         return jsonify({"error": "Valid person_id is required"}), 400
 
-    person = Person.query.get(person_id)
+    person = db.session.get(Person, person_id)
     if not person:
         return jsonify({"error": "Person not found"}), 404
 
@@ -49,12 +52,25 @@ def add_entry():
     if not food_name:
         return jsonify({"error": "Food name is required"}), 400
 
+    meal_type = data.get("meal_type", "").strip().lower()
+    if meal_type not in VALID_MEAL_TYPES:
+        return jsonify({"error": "meal_type must be breakfast, lunch, dinner, or snack"}), 400
+
     try:
         calories = int(data.get("calories"))
         if calories <= 0:
             return jsonify({"error": "Calories must be greater than 0"}), 400
     except (TypeError, ValueError):
         return jsonify({"error": "Calories must be a valid number"}), 400
+
+    try:
+        protein = float(data.get("protein", 0))
+        carbs = float(data.get("carbs", 0))
+        fats = float(data.get("fats", 0))
+        if protein < 0 or carbs < 0 or fats < 0:
+            return jsonify({"error": "Protein, carbs, and fats cannot be negative"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "Protein, carbs, and fats must be valid numbers"}), 400
 
     try:
         entry_date = date.fromisoformat(
@@ -66,7 +82,11 @@ def add_entry():
     entry = FoodEntry(
         person_id=person_id,
         food_name=food_name,
+        meal_type=meal_type,
         calories=calories,
+        protein=protein,
+        carbs=carbs,
+        fats=fats,
         entry_date=entry_date
     )
 
@@ -82,6 +102,10 @@ def list_entries():
     if not person_id:
         return jsonify({"error": "person_id is required"}), 400
 
+    person = db.session.get(Person, person_id)
+    if not person:
+        return jsonify({"error": "Person not found"}), 404
+
     try:
         entry_date = date.fromisoformat(
             request.args.get("date", date.today().isoformat())
@@ -95,17 +119,39 @@ def list_entries():
     ).all()
 
     total_calories = sum(e.calories for e in entries)
+    total_protein = sum(e.protein for e in entries)
+    total_carbs = sum(e.carbs for e in entries)
+    total_fats = sum(e.fats for e in entries)
+
+    meal_totals = {
+        "breakfast": 0,
+        "lunch": 0,
+        "dinner": 0,
+        "snack": 0
+    }
+
+    for e in entries:
+        meal_totals[e.meal_type] += e.calories
 
     return jsonify({
         "person_id": person_id,
         "date": entry_date.isoformat(),
         "total_calories": total_calories,
+        "total_protein": total_protein,
+        "total_carbs": total_carbs,
+        "total_fats": total_fats,
+        "meal_totals": meal_totals,
         "entries": [
             {
                 "id": e.id,
                 "food_name": e.food_name,
-                "calories": e.calories
-            } for e in entries
+                "meal_type": e.meal_type,
+                "calories": e.calories,
+                "protein": e.protein,
+                "carbs": e.carbs,
+                "fats": e.fats
+            }
+            for e in entries
         ]
     })
 
@@ -116,16 +162,70 @@ def history():
     if not person_id:
         return jsonify({"error": "person_id is required"}), 400
 
+    person = db.session.get(Person, person_id)
+    if not person:
+        return jsonify({"error": "Person not found"}), 404
+
     entries = FoodEntry.query.filter_by(person_id=person_id).order_by(
-        FoodEntry.entry_date.desc()
+        FoodEntry.entry_date.desc(),
+        FoodEntry.created_at.desc()
     ).all()
 
     return jsonify([
         {
             "id": e.id,
             "food_name": e.food_name,
+            "meal_type": e.meal_type,
             "calories": e.calories,
+            "protein": e.protein,
+            "carbs": e.carbs,
+            "fats": e.fats,
             "entry_date": e.entry_date.isoformat()
         }
         for e in entries
     ])
+
+
+@bp.get("/weekly-summary")
+def weekly_summary():
+    person_id = request.args.get("person_id", type=int)
+    if not person_id:
+        return jsonify({"error": "person_id is required"}), 400
+
+    person = db.session.get(Person, person_id)
+    if not person:
+        return jsonify({"error": "Person not found"}), 404
+
+    end_date = date.today()
+    start_date = end_date - timedelta(days=6)
+
+    entries = FoodEntry.query.filter(
+        FoodEntry.person_id == person_id,
+        FoodEntry.entry_date >= start_date,
+        FoodEntry.entry_date <= end_date
+    ).order_by(FoodEntry.entry_date.asc()).all()
+
+    summary = {}
+
+    for i in range(7):
+        day = start_date + timedelta(days=i)
+        summary[day.isoformat()] = {
+            "calories": 0,
+            "protein": 0,
+            "carbs": 0,
+            "fats": 0
+        }
+
+    for e in entries:
+        day_key = e.entry_date.isoformat()
+        summary[day_key]["calories"] += e.calories
+        summary[day_key]["protein"] += e.protein
+        summary[day_key]["carbs"] += e.carbs
+        summary[day_key]["fats"] += e.fats
+
+    return jsonify({
+        "person_id": person_id,
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "daily_totals": summary
+    })

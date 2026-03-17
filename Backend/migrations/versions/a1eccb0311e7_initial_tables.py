@@ -1,44 +1,50 @@
-"""initial tables
+"""add macros and meal_type to food_entries
 
-Revision ID: a1eccb0311e7
-Revises: 
-Create Date: 2026-02-25 11:33:46.195303
+Revision ID: b2_add_macros
+Revises: a1eccb0311e7
+Create Date: 2026-03-11
 """
 
 from alembic import op
 import sqlalchemy as sa
 
 
-# revision identifiers, used by Alembic.
-revision = "a1eccb0311e7"
-down_revision = None
+revision = "b2_add_macros"
+down_revision = "a1eccb0311e7"
 branch_labels = None
 depends_on = None
 
 
 def upgrade():
-    op.create_table(
-        "people",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("name", sa.String(length=100), nullable=False),
-        sa.Column("age", sa.Integer(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.PrimaryKeyConstraint("id"),
+    op.add_column(
+        "food_entries",
+        sa.Column("meal_type", sa.String(length=50), nullable=False, server_default="snack")
     )
 
-    op.create_table(
+    op.add_column(
         "food_entries",
-        sa.Column("id", sa.Integer(), nullable=False),
-        sa.Column("person_id", sa.Integer(), nullable=False),
-        sa.Column("food_name", sa.String(length=255), nullable=False),
-        sa.Column("calories", sa.Integer(), nullable=False),
-        sa.Column("entry_date", sa.Date(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(["person_id"], ["people.id"]),
-        sa.PrimaryKeyConstraint("id"),
+        sa.Column("protein", sa.Float(), nullable=False, server_default="0")
     )
+
+    op.add_column(
+        "food_entries",
+        sa.Column("carbs", sa.Float(), nullable=False, server_default="0")
+    )
+
+    op.add_column(
+        "food_entries",
+        sa.Column("fats", sa.Float(), nullable=False, server_default="0")
+    )
+
+    # remove defaults after column creation
+    op.alter_column("food_entries", "meal_type", server_default=None)
+    op.alter_column("food_entries", "protein", server_default=None)
+    op.alter_column("food_entries", "carbs", server_default=None)
+    op.alter_column("food_entries", "fats", server_default=None)
 
 
 def downgrade():
-    op.drop_table("food_entries")
-    op.drop_table("people")
+    op.drop_column("food_entries", "fats")
+    op.drop_column("food_entries", "carbs")
+    op.drop_column("food_entries", "protein")
+    op.drop_column("food_entries", "meal_type")
