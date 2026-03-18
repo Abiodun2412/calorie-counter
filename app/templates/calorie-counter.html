@@ -866,7 +866,9 @@
 
 <script>
 // ─── State ────────────────────────────────────────────────────────────────────
-const CALORIE_GOAL = 2000;
+let PERSON_ID = localStorage.getItem('person_id') || null;
+const BASE_URL = '';
+  const CALORIE_GOAL = 2000;
 const MACROS = { protein: 120, carbs: 220, fat: 73 };
 
 const MEAL_COLORS  = { Breakfast:'#f59e0b', Lunch:'#3b82f6', Dinner:'#8b5cf6', Snack:'#ef4444' };
