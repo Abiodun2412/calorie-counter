@@ -7,6 +7,10 @@ class Person(db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(255), nullable=False)
+    weight = db.Column(db.Float, nullable=True)
+    height = db.Column(db.Float, nullable=True)
     age = db.Column(db.Integer, nullable=False)
     daily_calorie_goal = db.Column(db.Integer, nullable=False, default=2000)
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)

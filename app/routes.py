@@ -16,10 +16,23 @@ def home():
 @bp.post("/people")
 def create_person():
     data = request.get_json() or {}
+
     name = data.get("name", "").strip()
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "").strip()
 
     if not name:
         return jsonify({"error": "Name is required"}), 400
+
+    if not email:
+        return jsonify({"error": "Email is required"}), 400
+
+    if not password:
+        return jsonify({"error": "Password is required"}), 400
+
+    existing_person = Person.query.filter_by(email=email).first()
+    if existing_person:
+        return jsonify({"error": "Email already exists"}), 400
 
     try:
         age = int(data.get("age"))
@@ -35,8 +48,29 @@ def create_person():
     except (TypeError, ValueError):
         return jsonify({"error": "daily_calorie_goal must be a valid number"}), 400
 
+    weight = data.get("weight")
+    height = data.get("height")
+
+    try:
+        weight = float(weight) if weight not in (None, "") else None
+        if weight is not None and weight <= 0:
+            return jsonify({"error": "Weight must be greater than 0"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "Weight must be a valid number"}), 400
+
+    try:
+        height = float(height) if height not in (None, "") else None
+        if height is not None and height <= 0:
+            return jsonify({"error": "Height must be greater than 0"}), 400
+    except (TypeError, ValueError):
+        return jsonify({"error": "Height must be a valid number"}), 400
+
     person = Person(
         name=name,
+        email=email,
+        password=password,
+        weight=weight,
+        height=height,
         age=age,
         daily_calorie_goal=daily_calorie_goal
     )
@@ -46,6 +80,9 @@ def create_person():
     return jsonify({
         "id": person.id,
         "name": person.name,
+        "email": person.email,
+        "weight": person.weight,
+        "height": person.height,
         "age": person.age,
         "daily_calorie_goal": person.daily_calorie_goal
     }), 201
@@ -125,7 +162,18 @@ def add_entry():
     db.session.add(entry)
     db.session.commit()
 
-    return jsonify({"id": entry.id}), 201
+    return jsonify({
+        "id": entry.id,
+        "person_id": entry.person_id,
+        "food_name": entry.food_name,
+        "meal_type": entry.meal_type,
+        "calories": entry.calories,
+        "protein": entry.protein,
+        "carbs": entry.carbs,
+        "fats": entry.fats,
+        "entry_date": entry.entry_date.isoformat(),
+        "entry_time": entry.entry_time.isoformat()
+    }), 201
 
 
 @bp.get("/entries")
