@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import datetime, date, timedelta, time
 from flask import Blueprint, request, jsonify
 from . import db
 from .models import Person, FoodEntry
@@ -101,6 +101,15 @@ def add_entry():
     except ValueError:
         return jsonify({"error": "entry_date must be in YYYY-MM-DD format"}), 400
 
+    try:
+        entry_time_str = data.get("entry_time")
+        if entry_time_str:
+            entry_time = time.fromisoformat(entry_time_str)
+        else:
+            entry_time = datetime.utcnow().time().replace(microsecond=0)
+    except ValueError:
+        return jsonify({"error": "entry_time must be in HH:MM:SS format"}), 400
+
     entry = FoodEntry(
         person_id=person_id,
         food_name=food_name,
@@ -109,7 +118,8 @@ def add_entry():
         protein=protein,
         carbs=carbs,
         fats=fats,
-        entry_date=entry_date
+        entry_date=entry_date,
+        entry_time=entry_time
     )
 
     db.session.add(entry)
@@ -138,7 +148,7 @@ def list_entries():
     entries = FoodEntry.query.filter_by(
         person_id=person_id,
         entry_date=entry_date
-    ).order_by(FoodEntry.created_at.asc()).all()
+    ).order_by(FoodEntry.entry_time.asc(), FoodEntry.created_at.asc()).all()
 
     total_calories = sum(e.calories for e in entries)
     total_protein = sum(e.protein for e in entries)
@@ -176,7 +186,8 @@ def list_entries():
                 "calories": e.calories,
                 "protein": e.protein,
                 "carbs": e.carbs,
-                "fats": e.fats
+                "fats": e.fats,
+                "entry_time": e.entry_time.isoformat()
             }
             for e in entries
         ]
@@ -195,6 +206,7 @@ def history():
 
     entries = FoodEntry.query.filter_by(person_id=person_id).order_by(
         FoodEntry.entry_date.desc(),
+        FoodEntry.entry_time.desc(),
         FoodEntry.created_at.desc()
     ).all()
 
@@ -210,7 +222,8 @@ def history():
                 "protein": e.protein,
                 "carbs": e.carbs,
                 "fats": e.fats,
-                "entry_date": e.entry_date.isoformat()
+                "entry_date": e.entry_date.isoformat(),
+                "entry_time": e.entry_time.isoformat()
             }
             for e in entries
         ]

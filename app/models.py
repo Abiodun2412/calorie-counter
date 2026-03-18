@@ -26,4 +26,9 @@ class FoodEntry(db.Model):
     carbs = db.Column(db.Float, nullable=False, default=0)
     fats = db.Column(db.Float, nullable=False, default=0)
     entry_date = db.Column(db.Date, default=date.today, nullable=False)
+    entry_time = db.Column(
+        db.Time,
+        nullable=False,
+        default=lambda: datetime.utcnow().time().replace(microsecond=0)
+    )
     created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
