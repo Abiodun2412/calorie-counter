@@ -7,6 +7,49 @@ bp = Blueprint("api", __name__)
 
 VALID_MEAL_TYPES = {"breakfast", "lunch", "dinner", "snack"}
 
+FOOD_DB = [
+    {
+        "name": "Banana",
+        "barcode": "100000000001",
+        "calories": 89,
+        "protein": 1.1,
+        "carbs": 22.8,
+        "fats": 0.3
+    },
+    {
+        "name": "Apple",
+        "barcode": "100000000002",
+        "calories": 52,
+        "protein": 0.3,
+        "carbs": 13.8,
+        "fats": 0.2
+    },
+    {
+        "name": "Chicken Breast",
+        "barcode": "100000000003",
+        "calories": 165,
+        "protein": 31.0,
+        "carbs": 0.0,
+        "fats": 3.6
+    },
+    {
+        "name": "Brown Rice",
+        "barcode": "100000000004",
+        "calories": 111,
+        "protein": 2.6,
+        "carbs": 23.0,
+        "fats": 0.9
+    },
+    {
+        "name": "Greek Yogurt",
+        "barcode": "100000000005",
+        "calories": 59,
+        "protein": 10.0,
+        "carbs": 3.6,
+        "fats": 0.4
+    }
+]
+
 
 @bp.get("/")
 def home():
@@ -322,3 +365,37 @@ def weekly_summary():
         "end_date": end_date.isoformat(),
         "daily_totals": summary
     })
+
+
+@bp.get("/foods/search")
+def search_foods():
+    query = request.args.get("q", "").strip().lower()
+
+    if not query:
+        return jsonify({"error": "Search query 'q' is required"}), 400
+
+    results = [
+        food for food in FOOD_DB
+        if query in food["name"].lower()
+    ]
+
+    return jsonify({
+        "query": query,
+        "count": len(results),
+        "results": results
+    })
+
+
+@bp.get("/foods/barcode")
+def get_food_by_barcode():
+    barcode = request.args.get("code", "").strip()
+
+    if not barcode:
+        return jsonify({"error": "Barcode 'code' is required"}), 400
+
+    food = next((f for f in FOOD_DB if f["barcode"] == barcode), None)
+
+    if not food:
+        return jsonify({"error": "Food not found"}), 404
+
+    return jsonify(food)
